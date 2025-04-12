@@ -11,7 +11,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "./Home.css";
 
-// Fix leaflet icon
+// Fix icon issues in leaflet
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
@@ -24,12 +24,30 @@ L.Icon.Default.mergeOptions({
 
 const Home = () => {
   const [user, setUser] = useState({ name: "User", email: "" });
-  const [locations, setLocations] = useState([]);
-  const [newLocation, setNewLocation] = useState(null);
+  const [locations, setLocations] = useState([
+    {
+      id: 1,
+      name: "Lokasi 1",
+      desc: "Deskripsi lokasi pertama",
+      position: [-6.2, 106.816666],
+    },
+    {
+      id: 2,
+      name: "Lokasi 2",
+      desc: "Deskripsi lokasi kedua",
+      position: [-6.21, 106.845],
+    },
+    {
+      id: 3,
+      name: "Lokasi 3",
+      desc: "Deskripsi lokasi ketiga",
+      position: [-8.579585, 115.234219],
+    },
+  ]);
+  const [newLocation, setNewLocation] = useState(null); // Untuk menyimpan marker baru yang diklik
   const [locationForm, setLocationForm] = useState({ name: "", desc: "" });
   const navigate = useNavigate();
 
-  // Autentikasi dan ambil user
   useEffect(() => {
     const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
     if (!isAuthenticated) {
@@ -43,42 +61,13 @@ const Home = () => {
     }
   }, [navigate]);
 
-  // Fetch locations
-  useEffect(() => {
-    const fetchLocations = async () => {
-      try {
-        const response = await fetch("http://localhost:2246/api/locations");
-        const result = await response.json();
-
-        const formattedLocations = result.locations
-          .filter(
-            (loc) =>
-              Math.abs(loc.latitude) <= 90 && Math.abs(loc.longitude) <= 180
-          )
-          .map((loc) => ({
-            id: loc.id,
-            name: loc.location_name,
-            desc: loc.description,
-            position: [loc.latitude, loc.longitude],
-          }));
-
-        setLocations(formattedLocations);
-      } catch (error) {
-        console.error("Gagal mengambil data lokasi:", error);
-      }
-    };
-
-    fetchLocations();
-  }, []);
-
-  // Logout
   const handleLogout = () => {
     localStorage.removeItem("isAuthenticated");
     localStorage.removeItem("user");
     navigate("/");
   };
 
-  // Map click handler
+  // Component untuk menangkap klik di peta
   const MapClickHandler = () => {
     useMapEvents({
       click(e) {
@@ -90,55 +79,19 @@ const Home = () => {
     return null;
   };
 
-  // Submit form to add location
-  const handleFormSubmit = async (e) => {
+  const handleFormSubmit = (e) => {
     e.preventDefault();
     if (locationForm.name && locationForm.desc && newLocation) {
-      const newLoc = {
-        location_name: locationForm.name,
-        description: locationForm.desc,
-        latitude: parseFloat(newLocation.lat),
-        longitude: parseFloat(newLocation.lng),
-      };
-
-      try {
-        const response = await fetch("http://localhost:2246/api/locations", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(newLoc),
-        });
-
-        if (!response.ok) {
-          throw new Error("Gagal menambahkan lokasi ke server");
-        }
-
-        // Ambil ulang data dari API setelah menambahkan lokasi
-        const updatedResponse = await fetch(
-          "http://localhost:2246/api/locations"
-        );
-        const updatedResult = await updatedResponse.json();
-
-        const formattedLocations = updatedResult.locations
-          .filter(
-            (loc) =>
-              Math.abs(loc.latitude) <= 90 && Math.abs(loc.longitude) <= 180
-          )
-          .map((loc) => ({
-            id: loc.id,
-            name: loc.location_name,
-            desc: loc.description,
-            position: [loc.latitude, loc.longitude],
-          }));
-
-        setLocations(formattedLocations); // Update state locations
-        setNewLocation(null); // Reset the new location state
-        setLocationForm({ name: "", desc: "" }); // Reset form
-      } catch (error) {
-        console.error("Gagal mengirim data:", error);
-        alert("Terjadi kesalahan saat mengirim data ke server");
-      }
+      setLocations([
+        ...locations,
+        {
+          id: locations.length + 1,
+          name: locationForm.name,
+          desc: locationForm.desc,
+          position: [newLocation.lat, newLocation.lng],
+        },
+      ]);
+      setNewLocation(null);
     }
   };
 
@@ -184,7 +137,6 @@ const Home = () => {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
               <MapClickHandler />
-
               {locations.map((location) => (
                 <Marker key={location.id} position={location.position}>
                   <Popup>
@@ -200,7 +152,6 @@ const Home = () => {
                   </Popup>
                 </Marker>
               ))}
-
               {newLocation && (
                 <Marker position={[newLocation.lat, newLocation.lng]}>
                   <Popup>
